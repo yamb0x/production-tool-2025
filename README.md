@@ -2,13 +2,13 @@
 
 A professional artist booking and project management platform designed for creative studios to efficiently allocate talent, manage schedules, and track project timelines.
 
-## ⚠️ IMPORTANT: Pre-Development Phase
+## IMPORTANT: Pre-Development Phase
 
 **This project is in the architecture and planning phase. No development has started yet.**
 
 All documentation describes the planned implementation. Development will only begin after all architecture decisions are approved.
 
-## 📚 Documentation
+## Documentation
 
 ### Quick Navigation
 
@@ -32,30 +32,30 @@ All documentation describes the planned implementation. Development will only be
 
 ## Core Features
 
-### 🎯 Artist Booking System
+### Artist Booking System
 - **Conflict-free scheduling** with PostgreSQL GIST constraints
 - **Hold/Pencil system** for tentative bookings
 - **Real-time availability** updates across all users
 - **Multi-tenant isolation** with row-level security
 
-<!-- CLEM-IMPL: Additional artist features -->
+> **CLEM-IMPL**: Additional artist features
 - **Artist profiles** displays artist info referenced in bookings
 - **Artist database** Search artists and create bookings
 
-### 📊 Project Management
+### Project Management
 - **Gantt chart visualization** for project timelines
 - **Phase dependencies** and milestone tracking
 - **Resource allocation** across multiple projects
 - **Progress tracking** with real-time updates
 
-### ⚡ Real-time Collaboration
+### Real-time Collaboration
 - **WebSocket-based** live updates
 - **Event sourcing** for complete audit trail
 - **Optimistic UI** for instant feedback
 - **Multi-user conflict resolution**
 
-<!-- CLEM-IMPL: Jobs listing feature needs specification -->
-### 📋 Jobs Listing
+### Jobs Listing
+> **CLEM-IMPL**: Jobs listing feature needs specification
 - Feature specification needed
 
 ## Technology Stack
@@ -117,7 +117,7 @@ All documentation describes the planned implementation. Development will only be
 ### Core Tables
 - **tenants**: Multi-tenant organization management
 
-<!-- CLEM-Q: What are tenants in this context? -->
+> **CLEM-Q**: What are tenants in this context?
 
 - **users**: User accounts with role-based access
 - **artists**: Creative professionals (3D artists, animators, etc.)
@@ -125,7 +125,7 @@ All documentation describes the planned implementation. Development will only be
 - **bookings**: Time allocations with conflict prevention
 - **booking_events**: Event sourcing for audit trail
 
-<!-- CLEM-IMPL: Add job listings to database schema -->
+> **CLEM-IMPL**: Add job listings to database schema
 - **job_listings**: Jobs posted by studios on job listing platform
 
 ### Key Features
@@ -223,7 +223,7 @@ src/
 └── types/                # TypeScript definitions
 ```
 
-<!-- CLEM-ARCH: Add job listings module to project structure -->
+> **CLEM-ARCH**: Add job listings module to project structure
 
 ## Development Workflow
 
@@ -268,7 +268,7 @@ src/
 - Role-based access control (RBAC)
 - API routes protected by middleware
 
-<!-- CLEM-SEC: Create architecture without super admins - no access without explicit permission -->
+> **CLEM-SEC**: Create architecture without super admins - no access without explicit permission
 
 ### Data Protection
 - Row-level security for multi-tenancy

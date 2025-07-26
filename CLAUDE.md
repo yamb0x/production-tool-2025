@@ -13,7 +13,7 @@
 
 ### 1. Backups - ALWAYS FOLLOW
 
-<!-- CLEM-REVIEW: Check if backup section content was deleted during call -->
+> **CLEM-REVIEW**: Check if backup section content was deleted during call
 - Backup procedures need to be documented here
 
 ### 2. File Creation Workflow
