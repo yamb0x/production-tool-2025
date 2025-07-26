@@ -38,9 +38,9 @@ All documentation describes the planned implementation. Development will only be
 - **Real-time availability** updates across all users
 - **Multi-tenant isolation** with row-level security
 
-///CLEM:///
-    - **Artist profiles** displays artist info referenced in bookings
-    - **Artist database** Search artists and create bookings
+<!-- CLEM-IMPL: Additional artist features -->
+- **Artist profiles** displays artist info referenced in bookings
+- **Artist database** Search artists and create bookings
 
 ### 📊 Project Management
 - **Gantt chart visualization** for project timelines
@@ -54,9 +54,9 @@ All documentation describes the planned implementation. Development will only be
 - **Optimistic UI** for instant feedback
 - **Multi-user conflict resolution**
 
-///CLEM///:
-    ### ⚡ Jobs Listing
-    - ???
+<!-- CLEM-IMPL: Jobs listing feature needs specification -->
+### 📋 Jobs Listing
+- Feature specification needed
 
 ## Technology Stack
 
@@ -117,7 +117,7 @@ All documentation describes the planned implementation. Development will only be
 ### Core Tables
 - **tenants**: Multi-tenant organization management
 
-///CLEM///: what are tenants in this context?
+<!-- CLEM-Q: What are tenants in this context? -->
 
 - **users**: User accounts with role-based access
 - **artists**: Creative professionals (3D artists, animators, etc.)
@@ -125,8 +125,8 @@ All documentation describes the planned implementation. Development will only be
 - **bookings**: Time allocations with conflict prevention
 - **booking_events**: Event sourcing for audit trail
 
-///CLEM///:
-    - **job listings**: jobs posted by studios on job listing
+<!-- CLEM-IMPL: Add job listings to database schema -->
+- **job_listings**: Jobs posted by studios on job listing platform
 
 ### Key Features
 - **GIST Exclusion Constraints**: Prevents double-booking at database level
@@ -222,8 +222,8 @@ src/
 │   └── project/          # Project management
 └── types/                # TypeScript definitions
 ```
-///CLEM///:
-- we need to add the job listings function inside here too I guess?
+
+<!-- CLEM-ARCH: Add job listings module to project structure -->
 
 ## Development Workflow
 
@@ -268,7 +268,7 @@ src/
 - Role-based access control (RBAC)
 - API routes protected by middleware
 
-///CLEM///: I think we need to create an architecture without super admins (we shouldn't have access to any information without explicit permission during fixes etc.)
+<!-- CLEM-SEC: Create architecture without super admins - no access without explicit permission -->
 
 ### Data Protection
 - Row-level security for multi-tenancy

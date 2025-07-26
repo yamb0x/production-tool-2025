@@ -13,8 +13,8 @@
 
 ### 1. Backups - ALWAYS FOLLOW
 
-///CLEM///: 
-- I think we added this while running through it together on our call, but lets just check something hasn't been deleted here!^^
+<!-- CLEM-REVIEW: Check if backup section content was deleted during call -->
+- Backup procedures need to be documented here
 
 ### 2. File Creation Workflow
 1. **CHECK** current location with `pwd`
