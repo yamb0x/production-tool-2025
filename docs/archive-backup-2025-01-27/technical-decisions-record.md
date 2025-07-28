@@ -6,7 +6,7 @@ This document records all significant technical decisions made for the Productio
 
 ## Table of Contents
 
-1. [TDR-001: Modular Monolith Architecture](#tdr-001-modular-monolith-architecture)
+1. [TDR-001: Modular Monolith Architecture](#tdr-001-modular-monolith-architecture) **[SUPERSEDED by TDR-011]**
 2. [TDR-002: PostgreSQL with Exclusion Constraints](#tdr-002-postgresql-with-exclusion-constraints)
 3. [TDR-003: TypeScript and Next.js Stack](#tdr-003-typescript-and-nextjs-stack)
 4. [TDR-004: Real-time with Socket.IO](#tdr-004-real-time-with-socketio)
@@ -16,14 +16,16 @@ This document records all significant technical decisions made for the Productio
 8. [TDR-008: Authentication with Clerk](#tdr-008-authentication-with-clerk)
 9. [TDR-009: AI-First Development Approach](#tdr-009-ai-first-development-approach)
 10. [TDR-010: Caching Strategy](#tdr-010-caching-strategy)
+11. [TDR-011: Separated Frontend/Backend Architecture](#tdr-011-separated-frontend-backend-architecture) **[NEW]**
 
 ---
 
 ## TDR-001: Modular Monolith Architecture
 
 **Date**: 2025-01-20  
-**Status**: Accepted  
+**Status**: ~~Accepted~~ **SUPERSEDED by TDR-011**  
 **Deciders**: Architecture Team  
+**Note**: This decision has been superseded by TDR-011 which adopts a separated frontend/backend architecture for better scalability and real-time support.  
 
 ### Context
 
@@ -612,9 +614,97 @@ All technical decisions should be reviewed:
 3. **Quarterly**: Major architecture review
 4. **Annually**: Full TDR audit
 
+---
+
+## TDR-011: Separated Frontend/Backend Architecture
+
+**Date**: 2025-01-27  
+**Status**: Accepted  
+**Deciders**: Architecture Team  
+**Supersedes**: TDR-001  
+
+### Context
+
+After review and external consultation, we identified that:
+- Socket.IO requires persistent connections incompatible with serverless
+- Complex booking logic benefits from dedicated backend
+- Future UI redesigns need technology independence
+- Real-time features require long-running processes
+- Team will benefit from clear API boundaries
+
+### Decision
+
+Adopt a **separated frontend/backend architecture** with:
+- **Frontend**: Next.js 15 (Vercel) - SSR/SSG only
+- **Backend**: NestJS (Railway/DigitalOcean) - API + WebSockets
+- **Monorepo**: Turborepo with shared packages
+- **Clear API contracts** between frontend and backend
+
+### Rationale
+
+1. **Real-time Support**: Socket.IO needs persistent server
+2. **Scalability**: Independent scaling of frontend/backend
+3. **Technology Freedom**: Can redesign UI without touching backend
+4. **Clear Boundaries**: Better testing and maintenance
+5. **Type Safety**: Shared types package ensures consistency
+
+### Alternatives Considered
+
+| Alternative | Pros | Cons |
+|------------|------|------|
+| Keep Monolith | Simpler deployment | Socket.IO issues, scaling limits |
+| Serverless Functions | Auto-scaling | No WebSocket support |
+| Express Backend | Simpler than NestJS | Less structure for growth |
+
+### Consequences
+
+**Positive**:
+- Proper WebSocket support
+- Independent deployments
+- Clear API documentation
+- Better separation of concerns
+- Easier to add mobile apps
+
+**Negative**:
+- Two deployment targets
+- Slightly more complex setup
+- Higher base hosting cost (~€20/month)
+- Need to manage API versioning
+
+### Mitigation
+
+- Use Turborepo for efficient monorepo management
+- Shared types package for type safety
+- Docker Compose for local development
+- Automated API documentation
+
+### Implementation Details
+
+```
+production-tool/
+├── apps/
+│   ├── web/          # Next.js frontend
+│   └── api/          # NestJS backend
+├── packages/
+│   ├── shared-types/ # Shared TypeScript types
+│   ├── ui/          # Shared UI components
+│   └── config/      # Shared configuration
+└── turbo.json       # Turborepo config
+```
+
+## Decision Review Process
+
+All technical decisions should be reviewed:
+
+1. **Weekly**: Team reviews recent decisions
+2. **Monthly**: Assess decision outcomes
+3. **Quarterly**: Major architecture review
+4. **Annually**: Full TDR audit
+
 ## Revision History
 
 - 2025-01-20: Initial TDR document created
+- 2025-01-27: Added TDR-011 for separated architecture, superseding TDR-001
 - [Future dates will be added as decisions are revised]
 
 ---

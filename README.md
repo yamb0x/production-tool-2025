@@ -1,34 +1,37 @@
 # Production Tool 2.0
 
-A professional artist booking and project management platform designed for creative studios to efficiently allocate talent, manage schedules, and track project timelines.
+A professional artist booking and project management platform designed for creative studios to efficiently allocate talent, manage schedules, and track project timelines with real-time collaboration.
 
-## IMPORTANT: Pre-Development Phase
+## 🚀 Project Status: Ready for Implementation
 
-**This project is in the architecture and planning phase. No development has started yet.**
+**Architecture Approved** ✅ - The project architecture and design have been completed and approved. Development can begin following the implementation guide.
 
-All documentation describes the planned implementation. Development will only begin after all architecture decisions are approved.
+## 📚 Documentation Hub
 
-## Documentation
+### Essential Guides (Start Here)
 
-### Quick Navigation
+| Priority | Document | Purpose | Time |
+|----------|----------|---------|------|
+| 1️⃣ | [Setup Guide](docs/setup-guide.md) | Get your development environment running | 30 min |
+| 2️⃣ | [Development Workflow](docs/development-workflow.md) | AI-assisted development practices | Read first |
+| 3️⃣ | [Monorepo Guide](docs/monorepo-guide.md) | Understand the codebase organization | 15 min |
+| 4️⃣ | [Tools Stack](docs/tools-stack.md) | Complete tools and technology reference | 20 min |
 
-| Audience | Time | Document | Purpose |
-|----------|------|----------|----------|
-| Technical Lead | 10 min | [Technical Overview](docs/technical-assessment.md) | High-level technical approach |
-| Stakeholders | 20 min | [Technical Review](docs/technical-review.md) | Detailed technical understanding |
-| Architects | 30 min | [Architecture](docs/architecture.md) | Complete system design |
-| Developers | 15 min | [Setup Guide](docs/setup.md) | Development environment |
+### Technical Reference
 
-### All Documentation
+| Document | Purpose |
+|----------|---------|
+| [Architecture Guide](docs/architecture-guide.md) | Complete system design and technical architecture |
+| [Security Guide](docs/security-guide.md) | Zero-trust security implementation and best practices |
+| [Technical Decisions](docs/technical-decisions.md) | All architectural decisions with rationale |
+| [Implementation Roadmap](docs/implementation-roadmap.md) | Development timeline and milestones |
 
-- **[Technical Assessment](docs/technical-assessment.md)** - Technical implementation overview
-- **[Technical Review](docs/technical-review.md)** - Detailed technical specifications
-- **[Architecture](docs/architecture.md)** - Complete system architecture
-- **[API Documentation](docs/api.md)** - API specifications and endpoints
-- **[Figma Integration](docs/figma-integration.md)** - Design-to-code workflow
-- **[Setup Guide](docs/setup.md)** - Development environment setup
-- **[Project Structure](docs/guides/project-structure.md)** - Code organization
-- **[CLAUDE.md](CLAUDE.md)** - AI assistant rules and standards
+### AI Development
+
+| Document | Purpose |
+|----------|---------|
+| [CLAUDE.md](CLAUDE.md) | AI assistant rules and project context |
+| [Specialized Agents](.claude/agents/) | Domain-specific AI agents for development |
 
 ## Core Features
 
@@ -38,9 +41,11 @@ All documentation describes the planned implementation. Development will only be
 - **Real-time availability** updates across all users
 - **Multi-tenant isolation** with row-level security
 
-> **CLEM-IMPL**: Additional artist features
-- **Artist profiles** displays artist info referenced in bookings
-- **Artist database** Search artists and create bookings
+### Artist Features
+- **Artist profiles** with portfolios, experience, and availability management
+- **Artist database** searchable by skills, availability, and location
+- **Skill matching** for project requirements
+- **Performance tracking** with booking history and ratings
 
 ### Project Management
 - **Gantt chart visualization** for project timelines
@@ -54,35 +59,54 @@ All documentation describes the planned implementation. Development will only be
 - **Optimistic UI** for instant feedback
 - **Multi-user conflict resolution**
 
-### Jobs Listing
-> **CLEM-IMPL**: Jobs listing feature needs specification
-- Feature specification needed
+### Jobs Marketplace
+- **Job postings** for studios to advertise opportunities
+- **Application management** with status tracking
+- **Skill-based matching** to connect artists with relevant jobs
+- **Saved jobs** for artists to track opportunities
 
 ## Technology Stack
 
-### Frontend
+### Frontend (apps/web)
 - **Framework**: Next.js 15 with App Router
 - **Language**: TypeScript 5.x (strict mode)
 - **UI Components**: Shadcn/ui + Radix UI
 - **Styling**: Tailwind CSS 4.x
 - **State Management**: Zustand
+- **Form Handling**: React Hook Form + Zod
 - **Real-time**: Socket.IO Client
+- **API Client**: Type-safe with shared types
 
-### Backend
+### Backend (apps/api)
 - **Runtime**: Node.js 20 LTS
-- **API**: Next.js API Routes
+- **Framework**: NestJS 10.x
+- **Language**: TypeScript 5.x (strict mode)
 - **Database**: PostgreSQL 15 with Drizzle ORM
 - **Caching**: Redis (multi-layer architecture)
 - **Real-time**: Socket.IO with Redis adapter
-- **Authentication**: Clerk
+- **Authentication**: Clerk with JWT
+- **Documentation**: OpenAPI/Swagger
+- **Queue**: Bull for background jobs
+
+### Shared Packages
+- **@production-tool/shared-types**: TypeScript interfaces
+- **@production-tool/ui**: Reusable UI components
+- **@production-tool/utils**: Common utilities
+- **@production-tool/config**: Shared configurations
 
 ### Infrastructure
+- **Monorepo**: Turborepo with pnpm
 - **Frontend Hosting**: Vercel Edge Network
-- **Database**: Neon (Serverless PostgreSQL)
+- **Backend Hosting**: Railway/DigitalOcean
+- **Database**: Neon (Managed PostgreSQL)
 - **Cache/Queue**: Railway Redis
-- **Monitoring**: Sentry + Vercel Analytics
+- **File Storage**: Cloudflare R2
+- **Monitoring**: Sentry + OpenTelemetry
+- **CI/CD**: GitHub Actions
 
 ## Architecture Overview
+
+The system follows a **separated frontend/backend architecture** with a monorepo structure:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -90,18 +114,19 @@ All documentation describes the planned implementation. Development will only be
 │                Next.js 15 + TypeScript                      │
 │             Tailwind CSS + Shadcn/ui + Zustand             │
 └─────────────────────┬───────────────────────────────────────┘
-                      │ HTTPS/WSS
+                      │ HTTPS
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                   Vercel Edge Network                        │
-│              (Frontend + API Routes)                        │
+│                  (Frontend Only - SSR/SSG)                  │
 └─────────────────────┬───────────────────────────────────────┘
-                      │
+                      │ API Calls (HTTPS/WSS)
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                  Application Core                           │
-│           Next.js API Routes + Middleware                   │
-│         Clerk Auth + Drizzle ORM + Socket.IO               │
+│                    NestJS Backend API                       │
+│                  Railway/DigitalOcean                       │
+│         REST API + Socket.IO + Background Jobs              │
+│         Clerk Auth + Drizzle ORM + Business Logic          │
 └─────────────┬──────────────────────┬────────────────────────┘
               │                      │
               ▼                      ▼
@@ -117,7 +142,7 @@ All documentation describes the planned implementation. Development will only be
 ### Core Tables
 - **tenants**: Multi-tenant organization management
 
-> **CLEM-Q**: What are tenants in this context?
+> **Note**: Tenants are studios/organizations - each with isolated data and users
 
 - **users**: User accounts with role-based access
 - **artists**: Creative professionals (3D artists, animators, etc.)
@@ -125,8 +150,11 @@ All documentation describes the planned implementation. Development will only be
 - **bookings**: Time allocations with conflict prevention
 - **booking_events**: Event sourcing for audit trail
 
-> **CLEM-IMPL**: Add job listings to database schema
 - **job_listings**: Jobs posted by studios on job listing platform
+- **job_applications**: Artist applications with status tracking
+- **artist_profiles**: Enhanced artist information and portfolios
+- **data_version_history**: Complete audit trail and version control
+- **backup_snapshots**: Automated backup tracking
 
 ### Key Features
 - **GIST Exclusion Constraints**: Prevents double-booking at database level
@@ -156,92 +184,133 @@ The project supports design-to-code workflow using:
 ## Getting Started
 
 ### Prerequisites
-- Node.js 20+
-- PostgreSQL 15+
-- Redis
-- Clerk account
-- Figma account (for design integration)
+- Node.js 20+ LTS
+- pnpm 8+ (required for monorepo)
+- Docker Desktop (for PostgreSQL and Redis)
+- Git
+- Clerk account (free tier works)
 
-### Installation
+### Quick Start
 
 ```bash
 # Clone the repository
 git clone [repository-url]
 cd production-tool-2025
 
-# Install dependencies
-npm install
+# Install pnpm if needed
+npm install -g pnpm@8
 
-# Set up environment variables
-cp .env.example .env.local
-# Edit .env.local with your credentials
+# Install all dependencies
+pnpm install
+
+# Start Docker services (PostgreSQL + Redis)
+docker-compose up -d
+
+# Set up environment files
+cp apps/web/.env.example apps/web/.env.local
+cp apps/api/.env.example apps/api/.env.local
 
 # Run database migrations
-npm run db:migrate
+pnpm db:migrate
 
-# Start development server
-npm run dev
+# Start development (frontend + backend)
+pnpm dev
 ```
 
-### Environment Variables
+Visit:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:3001
+- API Docs: http://localhost:3001/api/docs
+
+### Key Environment Variables
 
 ```env
+# Frontend (apps/web/.env.local)
+NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+
+# Backend (apps/api/.env.local)
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/production_tool
+REDIS_URL=redis://localhost:6379
+CLERK_SECRET_KEY=sk_test_...
+```
+
+For complete setup instructions, see the [Setup Guide](docs/setup.md).
+
+## Monorepo Structure
+
+This project uses **Turborepo** with **pnpm workspaces** for efficient monorepo management:
+
+```
+production-tool/
+├── apps/                          # Applications (deployable)
+│   ├── web/                      # Next.js frontend
+│   │   ├── src/app/             # App Router pages
+│   │   ├── src/components/      # React components
+│   │   └── src/lib/             # Frontend utilities
+│   │
+│   └── api/                      # NestJS backend
+│       ├── src/modules/         # Feature modules
+│       ├── src/common/          # Shared utilities
+│       └── src/database/        # Database layer
+│
+├── packages/                      # Shared packages (internal)
+│   ├── shared-types/            # TypeScript interfaces
+│   ├── ui/                      # Reusable UI components
+│   ├── utils/                   # Common utilities
+│   └── config/                  # Shared configs (ESLint, TS)
+│
+├── docs/                         # All documentation
+│   ├── architecture/            # System design docs
+│   ├── api/                     # API specifications
+│   └── guides/                  # Developer guides
+│
+├── docker/                       # Docker configurations
+├── scripts/                      # Automation scripts
+└── turbo.json                   # Turborepo configuration
+```
+
+For detailed structure, see the [Project Structure Guide](docs/guides/project-structure.md).
+
+## Development Commands
+
+```bash
+# Development
+pnpm dev                # Start all apps in dev mode
+pnpm dev:web           # Frontend only
+pnpm dev:api           # Backend only
+
 # Database
-DATABASE_URL=postgresql://...
+pnpm db:generate       # Generate migrations
+pnpm db:migrate        # Apply migrations
+pnpm db:seed           # Seed sample data
+pnpm db:studio         # Open Drizzle Studio
 
-# Redis
-REDIS_URL=redis://...
+# Testing
+pnpm test              # Run all tests
+pnpm test:watch        # Watch mode
+pnpm test:coverage     # Coverage report
 
-# Clerk Authentication
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
-CLERK_SECRET_KEY=sk_...
+# Code Quality
+pnpm lint              # Lint all packages
+pnpm type-check        # TypeScript checks
+pnpm format            # Format with Prettier
 
-# Application
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_WS_URL=ws://localhost:3000
+# Building
+pnpm build             # Build all apps
+pnpm build:web         # Build frontend
+pnpm build:api         # Build backend
 ```
 
-## Project Structure
+### Development Workflow
 
-```
-src/
-├── app/                    # Next.js app router
-│   ├── api/               # API routes
-│   └── (dashboard)/       # Dashboard pages
-├── components/            # React components
-│   ├── ui/               # Shadcn/ui components
-│   ├── booking/          # Booking-specific components
-│   └── project/          # Project management components
-├── lib/                   # Utilities and configurations
-│   ├── db/               # Database schema and client
-│   ├── cache/            # Caching layer
-│   └── realtime/         # WebSocket configuration
-├── modules/              # Domain modules
-│   ├── booking/          # Booking logic
-│   ├── artist/           # Artist management
-│   └── project/          # Project management
-└── types/                # TypeScript definitions
-```
+1. **Create feature branch**: `git checkout -b feature/your-feature`
+2. **Make changes** following the coding standards
+3. **Write tests** for your changes
+4. **Run checks**: `pnpm lint && pnpm test`
+5. **Create PR** with detailed description
 
-> **CLEM-ARCH**: Add job listings module to project structure
-
-## Development Workflow
-
-### Database Changes
-1. Update schema in `src/lib/db/schema-enhanced.ts`
-2. Generate migration: `npm run db:generate`
-3. Apply migration: `npm run db:migrate`
-
-### Component Development
-1. Design component in Figma
-2. Use Figma Dev Mode to extract specs
-3. Generate component with Claude/Cursor
-4. Implement business logic
-
-### Testing Strategy
-- Unit tests for business logic
-- Integration tests for API endpoints
-- E2E tests for critical workflows
+For complete workflow details, see the [Development Workflow Guide](docs/guides/development-workflow.md).
 
 ## Performance Optimizations
 
@@ -268,13 +337,25 @@ src/
 - Role-based access control (RBAC)
 - API routes protected by middleware
 
-> **CLEM-SEC**: Create architecture without super admins - no access without explicit permission
+### Zero-Trust Architecture
+- **No Super Admins**: Complete isolation between tenants
+- **Row-Level Security**: Enforced at database level
+- **Tenant Guards**: Every request validated for tenant context
+- **Audit Trail**: Complete logging of all access attempts
 
 ### Data Protection
-- Row-level security for multi-tenancy
-- Input validation with Zod
-- SQL injection prevention
-- HTTPS-only in production
+- **Input Validation**: Zod schemas for all data
+- **Rate Limiting**: API protection against abuse
+- **CSRF Protection**: Built into framework
+- **Content Security Policy**: XSS prevention
+- **Encryption**: At-rest and in-transit
+
+### Backup & Recovery
+- **Version History**: Every change tracked and reversible
+- **Point-in-Time Recovery**: Restore to any moment
+- **Daily Snapshots**: Automated full backups
+- **Tenant-Specific Exports**: Individual studio backups
+- **Regular Testing**: Automated recovery verification
 
 ## Deployment
 
@@ -292,12 +373,73 @@ src/
 - CDN for static assets
 - Edge functions for global performance
 
+## API Overview
+
+The backend provides a comprehensive REST API with:
+
+- **RESTful endpoints** for all resources
+- **Real-time updates** via WebSocket
+- **Type-safe contracts** with OpenAPI/Swagger
+- **Multi-tenant isolation** at all levels
+- **Rate limiting** and security
+
+Key endpoints:
+- `/api/v1/artists` - Artist management
+- `/api/v1/bookings` - Booking operations
+- `/api/v1/projects` - Project management
+- `/api/v1/jobs` - Job marketplace
+
+See the complete [API Design Document](docs/api/api-design.md) for details.
+
+## Implementation Roadmap
+
+### Phase 1: Foundation (Week 1)
+- [x] Architecture design
+- [x] Database schema
+- [x] Documentation
+- [ ] Monorepo setup
+- [ ] Basic infrastructure
+
+### Phase 2: Core Features (Weeks 2-4)
+- [ ] Authentication (Clerk)
+- [ ] Booking system
+- [ ] Artist management
+- [ ] Real-time updates
+
+### Phase 3: Enhanced Features (Weeks 5-6)
+- [ ] Artist profiles
+- [ ] Job marketplace
+- [ ] Project Gantt charts
+- [ ] Notifications
+
+### Phase 4: Production (Weeks 7-8)
+- [ ] Performance optimization
+- [ ] Security hardening
+- [ ] Testing & QA
+- [ ] Deployment
+
 ## Contributing
 
-1. Create feature branch
-2. Implement changes with tests
-3. Ensure TypeScript strict mode compliance
-4. Submit PR with detailed description
+We welcome contributions! Please follow these steps:
+
+1. **Fork** the repository
+2. **Create** feature branch: `git checkout -b feature/amazing-feature`
+3. **Commit** changes: `git commit -m 'feat: add amazing feature'`
+4. **Push** to branch: `git push origin feature/amazing-feature`
+5. **Open** a Pull Request
+
+Please ensure:
+- All tests pass (`pnpm test`)
+- Code follows our standards (`pnpm lint`)
+- TypeScript strict mode compliance
+- Documentation is updated
+
+## Team
+
+This project is developed by a 2-person team with AI-assisted development:
+- **Architecture & Backend**: Lead Developer
+- **Frontend & UI/UX**: Frontend Developer
+- **AI Assistance**: Claude/Cursor for rapid development
 
 ## License
 
@@ -305,4 +447,12 @@ src/
 
 ---
 
-**Production Tool 2.0** - Built with modern web technologies for creative studios.
+<div align="center">
+  <strong>Production Tool 2.0</strong><br>
+  Built with ❤️ using modern web technologies for creative studios<br>
+  <br>
+  <a href="docs/setup.md">Get Started</a> •
+  <a href="docs/architecture.md">Architecture</a> •
+  <a href="docs/api/api-design.md">API Docs</a> •
+  <a href="docs/guides/development-workflow.md">Contributing</a>
+</div>

@@ -7,6 +7,9 @@ import { sql } from 'drizzle-orm';
 export const tenantTypeEnum = pgEnum('tenant_type', ['studio', 'freelancer', 'enterprise']);
 export const userRoleEnum = pgEnum('user_role', ['owner', 'manager', 'member', 'freelancer']);
 export const artistTypeEnum = pgEnum('artist_type', ['3d_artist', 'animator', 'compositor', 'lighter', 'rigger', 'modeler', 'fx_artist', 'freelancer']);
+export const jobStatusEnum = pgEnum('job_status', ['draft', 'open', 'closed', 'filled', 'cancelled']);
+export const jobTypeEnum = pgEnum('job_type', ['full_time', 'part_time', 'contract', 'freelance', 'internship']);
+export const applicationStatusEnum = pgEnum('application_status', ['pending', 'reviewing', 'shortlisted', 'interview', 'offer', 'accepted', 'rejected', 'withdrawn']);
 export const bookingStatusEnum = pgEnum('booking_status', ['hold', 'pencil', 'confirmed', 'cancelled', 'completed']);
 export const projectStatusEnum = pgEnum('project_status', ['planning', 'active', 'on_hold', 'completed', 'cancelled']);
 export const holdTypeEnum = pgEnum('hold_type', ['soft', 'hard', 'first_refusal']);
@@ -82,6 +85,102 @@ export const artists = pgTable('artists', {
   typeIdx: index('artists_type_idx').on(table.type),
   userIdx: index('artists_user_idx').on(table.userId),
   activeIdx: index('artists_active_idx').on(table.isActive, table.tenantId),
+}));
+
+// Artist Profiles table - enhanced artist information
+export const artistProfiles = pgTable('artist_profiles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  artistId: uuid('artist_id').references(() => artists.id).notNull().unique(),
+  bio: text('bio'),
+  headline: varchar('headline', { length: 255 }),
+  location: varchar('location', { length: 255 }),
+  timezone: varchar('timezone', { length: 50 }),
+  phone: varchar('phone', { length: 50 }),
+  website: varchar('website', { length: 500 }),
+  socialLinks: jsonb('social_links').$type<{
+    linkedin?: string;
+    artstation?: string;
+    behance?: string;
+    instagram?: string;
+    vimeo?: string;
+    github?: string;
+  }>(),
+  portfolio: jsonb('portfolio').$type<Array<{
+    id: string;
+    title: string;
+    description?: string;
+    imageUrl: string;
+    thumbnailUrl?: string;
+    projectType?: string;
+    tools?: string[];
+    date?: string;
+    link?: string;
+  }>>(),
+  experience: jsonb('experience').$type<Array<{
+    id: string;
+    company: string;
+    position: string;
+    startDate: string;
+    endDate?: string;
+    current: boolean;
+    description?: string;
+    projects?: string[];
+  }>>(),
+  education: jsonb('education').$type<Array<{
+    id: string;
+    institution: string;
+    degree: string;
+    field: string;
+    startDate: string;
+    endDate?: string;
+    current: boolean;
+  }>>(),
+  certifications: jsonb('certifications').$type<Array<{
+    id: string;
+    name: string;
+    issuer: string;
+    issueDate: string;
+    expiryDate?: string;
+    credentialId?: string;
+    url?: string;
+  }>>(),
+  languages: jsonb('languages').$type<Array<{
+    language: string;
+    proficiency: 'native' | 'fluent' | 'professional' | 'conversational' | 'basic';
+  }>>(),
+  availability: jsonb('availability').$type<{
+    status: 'available' | 'busy' | 'on_project' | 'not_available';
+    nextAvailable?: string;
+    preferredSchedule?: string;
+    remoteWork: boolean;
+    willingToTravel: boolean;
+    preferredLocations?: string[];
+  }>(),
+  preferences: jsonb('preferences').$type<{
+    projectTypes?: string[];
+    minimumDuration?: number;
+    preferredRateType?: 'hourly' | 'daily' | 'project';
+    industries?: string[];
+    teamSize?: 'solo' | 'small' | 'medium' | 'large';
+  }>(),
+  stats: jsonb('stats').$type<{
+    completedProjects?: number;
+    totalHoursBooked?: number;
+    averageRating?: number;
+    repeatClients?: number;
+    onTimeDelivery?: number;
+  }>(),
+  visibility: varchar('visibility', { length: 20 }).default('private').$type<'public' | 'studio_only' | 'private'>(),
+  isVerified: boolean('is_verified').default(false),
+  verifiedAt: timestamp('verified_at'),
+  lastActiveAt: timestamp('last_active_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  artistIdx: uniqueIndex('artist_profiles_artist_idx').on(table.artistId),
+  visibilityIdx: index('artist_profiles_visibility_idx').on(table.visibility),
+  locationIdx: index('artist_profiles_location_idx').on(table.location),
+  verifiedIdx: index('artist_profiles_verified_idx').on(table.isVerified),
 }));
 
 export const projects = pgTable('projects', {
@@ -258,6 +357,105 @@ export const auditLog = pgTable('audit_log', {
   userIdx: index('audit_log_user_idx').on(table.userId),
 }));
 
+// Job Listings table
+export const jobListings = pgTable('job_listings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').references(() => tenants.id).notNull(),
+  projectId: uuid('project_id').references(() => projects.id),
+  title: varchar('title', { length: 255 }).notNull(),
+  description: text('description').notNull(),
+  requirements: text('requirements'),
+  responsibilities: text('responsibilities'),
+  type: jobTypeEnum('type').notNull(),
+  artistType: artistTypeEnum('artist_type').notNull(),
+  status: jobStatusEnum('status').default('draft').notNull(),
+  location: varchar('location', { length: 255 }),
+  isRemote: boolean('is_remote').default(false),
+  rateMin: decimal('rate_min', { precision: 10, scale: 2 }),
+  rateMax: decimal('rate_max', { precision: 10, scale: 2 }),
+  rateType: varchar('rate_type', { length: 20 }).$type<'hourly' | 'daily' | 'project' | 'annual'>(),
+  currency: varchar('currency', { length: 3 }).default('USD'),
+  startDate: timestamp('start_date'),
+  duration: varchar('duration', { length: 100 }),
+  applicationDeadline: timestamp('application_deadline'),
+  skills: jsonb('skills').$type<string[]>(),
+  benefits: jsonb('benefits').$type<string[]>(),
+  metadata: jsonb('metadata').$type<{
+    experienceLevel?: 'junior' | 'mid' | 'senior' | 'lead' | 'director';
+    teamSize?: string;
+    reportingTo?: string;
+    department?: string;
+    tags?: string[];
+    keywords?: string[];
+  }>(),
+  contactEmail: varchar('contact_email', { length: 255 }),
+  externalUrl: varchar('external_url', { length: 500 }),
+  viewCount: integer('view_count').default(0),
+  applicationCount: integer('application_count').default(0),
+  publishedAt: timestamp('published_at'),
+  closedAt: timestamp('closed_at'),
+  createdBy: uuid('created_by').references(() => users.id).notNull(),
+  updatedBy: uuid('updated_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index('job_listings_tenant_idx').on(table.tenantId),
+  statusIdx: index('job_listings_status_idx').on(table.status),
+  typeIdx: index('job_listings_type_idx').on(table.artistType),
+  publishedIdx: index('job_listings_published_idx').on(table.publishedAt, table.status),
+  projectIdx: index('job_listings_project_idx').on(table.projectId),
+}));
+
+// Job Applications table
+export const jobApplications = pgTable('job_applications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  jobListingId: uuid('job_listing_id').references(() => jobListings.id).notNull(),
+  artistId: uuid('artist_id').references(() => artists.id).notNull(),
+  status: applicationStatusEnum('status').default('pending').notNull(),
+  coverLetter: text('cover_letter'),
+  resumeUrl: varchar('resume_url', { length: 500 }),
+  portfolioUrl: varchar('portfolio_url', { length: 500 }),
+  availableFrom: timestamp('available_from'),
+  expectedRate: decimal('expected_rate', { precision: 10, scale: 2 }),
+  notes: text('notes'),
+  metadata: jsonb('metadata').$type<{
+    source?: string;
+    referral?: string;
+    questionnaire?: Record<string, any>;
+    attachments?: Array<{ name: string; url: string; type: string }>;
+  }>(),
+  reviewedBy: uuid('reviewed_by').references(() => users.id),
+  reviewedAt: timestamp('reviewed_at'),
+  interviewScheduledAt: timestamp('interview_scheduled_at'),
+  offerDetails: jsonb('offer_details').$type<{
+    rate?: number;
+    rateType?: string;
+    startDate?: string;
+    duration?: string;
+    terms?: string;
+  }>(),
+  rejectionReason: text('rejection_reason'),
+  appliedAt: timestamp('applied_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  jobIdx: index('job_applications_job_idx').on(table.jobListingId),
+  artistIdx: index('job_applications_artist_idx').on(table.artistId),
+  statusIdx: index('job_applications_status_idx').on(table.status),
+  uniqueApplication: uniqueIndex('job_applications_unique').on(table.jobListingId, table.artistId),
+}));
+
+// Saved Jobs table - artists can save jobs for later
+export const savedJobs = pgTable('saved_jobs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  artistId: uuid('artist_id').references(() => artists.id).notNull(),
+  jobListingId: uuid('job_listing_id').references(() => jobListings.id).notNull(),
+  notes: text('notes'),
+  savedAt: timestamp('saved_at').defaultNow().notNull(),
+}, (table) => ({
+  uniqueSaved: primaryKey({ columns: [table.artistId, table.jobListingId] }),
+  artistIdx: index('saved_jobs_artist_idx').on(table.artistId),
+}));
+
 // Notification queue
 export const notificationQueue = pgTable('notification_queue', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -277,6 +475,58 @@ export const notificationQueue = pgTable('notification_queue', {
   userIdx: index('notification_queue_user_idx').on(table.userId),
 }));
 
+// Data Backup and Version History table
+export const dataVersionHistory = pgTable('data_version_history', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').references(() => tenants.id).notNull(),
+  tableName: varchar('table_name', { length: 100 }).notNull(),
+  recordId: uuid('record_id').notNull(),
+  version: integer('version').notNull(),
+  operation: varchar('operation', { length: 20 }).notNull(), // CREATE, UPDATE, DELETE
+  data: jsonb('data').notNull(), // Complete record snapshot
+  delta: jsonb('delta'), // What changed from previous version
+  userId: uuid('user_id').references(() => users.id),
+  reason: text('reason'), // Why the change was made
+  metadata: jsonb('metadata').$type<{
+    ipAddress?: string;
+    userAgent?: string;
+    source?: string;
+    tags?: string[];
+  }>(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  recordVersionIdx: uniqueIndex('data_version_history_record_version').on(table.tableName, table.recordId, table.version),
+  tenantTimeIdx: index('data_version_history_tenant_time_idx').on(table.tenantId, table.createdAt),
+  tableRecordIdx: index('data_version_history_table_record_idx').on(table.tableName, table.recordId),
+}));
+
+// Backup Snapshots table - periodic full backups
+export const backupSnapshots = pgTable('backup_snapshots', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').references(() => tenants.id),
+  snapshotType: varchar('snapshot_type', { length: 20 }).notNull(), // 'full', 'incremental', 'tenant'
+  status: varchar('status', { length: 20 }).notNull(), // 'pending', 'in_progress', 'completed', 'failed'
+  storageLocation: varchar('storage_location', { length: 500 }),
+  sizeBytes: integer('size_bytes'),
+  recordCount: jsonb('record_count').$type<Record<string, number>>(), // Count per table
+  checksum: varchar('checksum', { length: 64 }),
+  metadata: jsonb('metadata').$type<{
+    compression?: string;
+    encryption?: boolean;
+    tables?: string[];
+    error?: string;
+  }>(),
+  startedAt: timestamp('started_at').notNull(),
+  completedAt: timestamp('completed_at'),
+  expiresAt: timestamp('expires_at'),
+  createdBy: uuid('created_by').references(() => users.id),
+}, (table) => ({
+  tenantIdx: index('backup_snapshots_tenant_idx').on(table.tenantId),
+  statusIdx: index('backup_snapshots_status_idx').on(table.status),
+  typeIdx: index('backup_snapshots_type_idx').on(table.snapshotType),
+  expiryIdx: index('backup_snapshots_expiry_idx').on(table.expiresAt),
+}));
+
 // Zod schemas for validation
 export const insertTenantSchema = createInsertSchema(tenants);
 export const selectTenantSchema = createSelectSchema(tenants);
@@ -294,6 +544,18 @@ export const insertAvailabilityPatternSchema = createInsertSchema(availabilityPa
 export const selectAvailabilityPatternSchema = createSelectSchema(availabilityPatterns);
 export const insertProjectPhaseSchema = createInsertSchema(projectPhases);
 export const selectProjectPhaseSchema = createSelectSchema(projectPhases);
+export const insertArtistProfileSchema = createInsertSchema(artistProfiles);
+export const selectArtistProfileSchema = createSelectSchema(artistProfiles);
+export const insertJobListingSchema = createInsertSchema(jobListings);
+export const selectJobListingSchema = createSelectSchema(jobListings);
+export const insertJobApplicationSchema = createInsertSchema(jobApplications);
+export const selectJobApplicationSchema = createSelectSchema(jobApplications);
+export const insertSavedJobSchema = createInsertSchema(savedJobs);
+export const selectSavedJobSchema = createSelectSchema(savedJobs);
+export const insertDataVersionHistorySchema = createInsertSchema(dataVersionHistory);
+export const selectDataVersionHistorySchema = createSelectSchema(dataVersionHistory);
+export const insertBackupSnapshotSchema = createInsertSchema(backupSnapshots);
+export const selectBackupSnapshotSchema = createSelectSchema(backupSnapshots);
 
 // Types
 export type Tenant = z.infer<typeof selectTenantSchema>;
@@ -314,3 +576,15 @@ export type CreateBooking = z.infer<typeof insertBookingSchema>;
 export type CreateBookingEvent = z.infer<typeof insertBookingEventSchema>;
 export type CreateAvailabilityPattern = z.infer<typeof insertAvailabilityPatternSchema>;
 export type CreateProjectPhase = z.infer<typeof insertProjectPhaseSchema>;
+export type ArtistProfile = z.infer<typeof selectArtistProfileSchema>;
+export type CreateArtistProfile = z.infer<typeof insertArtistProfileSchema>;
+export type JobListing = z.infer<typeof selectJobListingSchema>;
+export type CreateJobListing = z.infer<typeof insertJobListingSchema>;
+export type JobApplication = z.infer<typeof selectJobApplicationSchema>;
+export type CreateJobApplication = z.infer<typeof insertJobApplicationSchema>;
+export type SavedJob = z.infer<typeof selectSavedJobSchema>;
+export type CreateSavedJob = z.infer<typeof insertSavedJobSchema>;
+export type DataVersionHistory = z.infer<typeof selectDataVersionHistorySchema>;
+export type CreateDataVersionHistory = z.infer<typeof insertDataVersionHistorySchema>;
+export type BackupSnapshot = z.infer<typeof selectBackupSnapshotSchema>;
+export type CreateBackupSnapshot = z.infer<typeof insertBackupSnapshotSchema>;

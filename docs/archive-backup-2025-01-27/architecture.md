@@ -1,8 +1,8 @@
 # Production Tool 2.0 - Complete Architecture Documentation
 
-## ⚠️ IMPORTANT NOTICE
+## 📋 IMPLEMENTATION STATUS
 
-**NO DEVELOPMENT YET** - This document describes the planned architecture. Development has not started and will only begin after all architecture decisions are approved.
+**Architecture Approved** - Ready for implementation. This document serves as the definitive technical specification for Production Tool 2.0. All architecture decisions have been reviewed and approved, including the recent improvements proposed in the system design analysis.
 
 ## Project Overview
 
@@ -10,7 +10,7 @@
 
 ## System Overview
 
-The architecture follows a modular monolith pattern with clear separation of concerns and scalability in mind. The system is designed for a 2-person team using AI-assisted development, with infrastructure costs under €500/month for MVP.
+The architecture follows a separated frontend/backend pattern with clear API boundaries and scalability in mind. The system uses a monorepo structure managed by Turborepo, designed for a 2-person team using AI-assisted development, with infrastructure costs under €500/month for MVP.
 
 ## High-Level Architecture
 
@@ -20,18 +20,19 @@ The architecture follows a modular monolith pattern with clear separation of con
 │                Next.js 15 + TypeScript                      │
 │             Tailwind CSS + Shadcn/ui + Zustand             │
 └─────────────────────┬───────────────────────────────────────┘
-                      │ HTTPS/WSS
+                      │ HTTPS
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                   Vercel Edge Network                        │
-│              (Frontend + API Routes)                        │
+│                  (Frontend Only - SSR/SSG)                  │
 └─────────────────────┬───────────────────────────────────────┘
-                      │
+                      │ API Calls (HTTPS/WSS)
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                  Application Core                           │
-│           Next.js API Routes + Middleware                   │
-│         Clerk Auth + Drizzle ORM + Socket.IO               │
+│                    NestJS Backend API                       │
+│                  Railway/DigitalOcean                       │
+│         REST API + Socket.IO + Background Jobs              │
+│         Clerk Auth + Drizzle ORM + Business Logic          │
 └─────────────┬──────────────────────┬────────────────────────┘
               │                      │
               ▼                      ▼
@@ -44,11 +45,11 @@ The architecture follows a modular monolith pattern with clear separation of con
 
 ## Architecture Principles
 
-### 1. Modular Monolith
-- **Single deployable unit** with clear module boundaries
-- **Domain-driven structure** organized by business capabilities
-- **Future microservices readiness** with well-defined interfaces
-- **Shared database** with proper isolation via row-level security
+### 1. Separated Frontend/Backend
+- **Independent deployments** for frontend and backend
+- **Clear API boundaries** with versioned endpoints
+- **Technology independence** allowing UI redesigns without backend changes
+- **Monorepo structure** with shared types and utilities
 
 ### 2. Event-Driven Design
 - **Asynchronous processing** for non-critical operations
@@ -67,6 +68,12 @@ The architecture follows a modular monolith pattern with clear separation of con
 - **Type-safe contracts** with Zod validation
 - **Version management** with /api/v1 prefix
 - **GraphQL ready** for complex queries
+
+### 5. Security-First Architecture
+- **Zero-trust model** with no super admin access
+- **Complete tenant isolation** at all layers
+- **Comprehensive audit trail** for all operations
+- **Defense in depth** with multiple security layers
 
 ## Technology Stack
 
@@ -91,8 +98,8 @@ Socket.IO Client    // WebSocket communication
 ```typescript
 // Runtime & Framework
 Node.js 20 LTS      // JavaScript runtime
-Next.js API Routes  // Backend API layer
-Express.js          // HTTP server (for Socket.IO)
+NestJS 10.x         // Enterprise Node.js framework
+Fastify             // High-performance HTTP server
 
 // Database & ORM
 Drizzle ORM 0.36.x  // Type-safe database ORM
@@ -106,12 +113,16 @@ JWT                 // Session tokens
 // Real-time
 Socket.IO Server    // WebSocket server
 Redis Adapter       // Horizontal scaling for Socket.IO
+
+// Background Jobs
+Bull                // Redis-based queue for jobs
 ```
 
 ### Infrastructure Layer
 ```yaml
 Hosting:
   Frontend: Vercel (Edge Network)
+  Backend: Railway or DigitalOcean
   Database: Neon (Managed PostgreSQL)
   Cache: Railway Redis
   Files: Cloudflare R2
@@ -119,14 +130,61 @@ Hosting:
 
 Monitoring:
   Errors: Sentry
-  Performance: Vercel Analytics
-  Logs: Railway/Vercel Logs
+  Performance: Vercel Analytics + Backend APM
+  Logs: Railway/DigitalOcean Logs
 
 CI/CD:
-  Source: GitHub
+  Source: GitHub (Monorepo)
   Pipeline: GitHub Actions
-  Deployment: Vercel + Railway
+  Deployment: Vercel (frontend) + Railway (backend)
 ```
+
+## Monorepo Structure
+
+The project uses Turborepo for efficient monorepo management:
+
+```
+production-tool/
+├── apps/
+│   ├── web/                 # Next.js frontend application
+│   │   ├── app/            # App router pages
+│   │   ├── components/     # React components
+│   │   ├── lib/           # Frontend utilities
+│   │   └── public/        # Static assets
+│   │
+│   └── api/                 # NestJS backend application
+│       ├── src/
+│       │   ├── modules/    # Feature modules
+│       │   ├── common/     # Shared utilities
+│       │   └── main.ts     # Application entry
+│       └── test/          # Backend tests
+│
+├── packages/
+│   ├── shared-types/        # Shared TypeScript types/interfaces
+│   │   ├── booking.ts      # Booking-related types
+│   │   ├── artist.ts       # Artist-related types
+│   │   └── index.ts        # Type exports
+│   │
+│   ├── ui/                  # Shared UI components
+│   │   ├── components/     # Reusable components
+│   │   └── styles/        # Shared styles
+│   │
+│   └── config/              # Shared configuration
+│       ├── eslint/        # ESLint configs
+│       └── typescript/    # TypeScript configs
+│
+├── turbo.json              # Turborepo configuration
+├── package.json            # Root package.json
+└── pnpm-workspace.yaml     # PNPM workspace config
+```
+
+### Benefits of This Structure
+
+1. **Type Safety**: Shared types ensure frontend/backend consistency
+2. **Code Reuse**: Common utilities and components shared across apps
+3. **Independent Scaling**: Frontend and backend can be deployed separately
+4. **Clear Boundaries**: Each app has its own dependencies and build process
+5. **Efficient Builds**: Turborepo caches and optimizes builds
 
 ## Database Architecture
 
@@ -365,26 +423,144 @@ const permissions = {
 3. Generate component with Claude/Cursor: "Implement the BookingCard component from Figma"
 4. AI generates type-safe, accessible component
 
+## Module Architecture
+
+### Core Backend Modules
+
+#### Artist Module
+- **Purpose**: Manage artist profiles, portfolios, and availability
+- **Key Features**:
+  - Artist profile management with rich media portfolios
+  - Skill and experience tracking
+  - Availability calendar and scheduling preferences
+  - Performance metrics and booking history
+- **API Endpoints**: `/api/v1/artists/*`, `/api/v1/artist-profiles/*`
+
+#### Booking Module
+- **Purpose**: Handle all booking operations with conflict prevention
+- **Key Features**:
+  - GIST constraint-based conflict prevention
+  - Hold/pencil/confirmed booking workflow
+  - Real-time availability updates
+  - Event sourcing for complete audit trail
+- **API Endpoints**: `/api/v1/bookings/*`
+
+#### Jobs Module
+- **Purpose**: Job marketplace for connecting studios with artists
+- **Key Features**:
+  - Job listing creation and management
+  - Application tracking and status workflow
+  - Skill-based matching and recommendations
+  - Saved jobs and notification system
+- **API Endpoints**: `/api/v1/jobs/*`, `/api/v1/job-applications/*`
+
+#### Project Module
+- **Purpose**: Project management with Gantt visualization
+- **Key Features**:
+  - Project phases and dependencies
+  - Milestone tracking
+  - Resource allocation across projects
+  - Progress monitoring and reporting
+- **API Endpoints**: `/api/v1/projects/*`, `/api/v1/project-phases/*`
+
+#### Tenant Module
+- **Purpose**: Multi-tenant management and isolation
+- **Key Features**:
+  - Complete data isolation per studio
+  - Tenant-scoped user management
+  - Settings and preferences per tenant
+  - No super admin access across tenants
+- **API Endpoints**: `/api/v1/tenants/*`
+
+### Common Services
+
+#### Data Version History Service
+- **Purpose**: Track all data changes for audit and recovery
+- **Features**:
+  - Every change creates a version entry
+  - Instant rollback to any version
+  - Change comparison and delta tracking
+  - Automated cleanup of old versions
+
+#### Backup Service
+- **Purpose**: Comprehensive backup and recovery
+- **Features**:
+  - Multi-layer backup strategy
+  - Point-in-time recovery capability
+  - Tenant-specific backup exports
+  - Automated backup validation
+
+#### Notification Service
+- **Purpose**: Multi-channel notification delivery
+- **Features**:
+  - In-app, email, and push notifications
+  - Template-based message generation
+  - Delivery tracking and retry logic
+  - User preference management
+
 ## Implementation Status
 
-### ✅ Completed (Pre-Development)
+### ✅ Phase 1: Architecture & Design (COMPLETED)
 - Enhanced database schema with all required tables
+- Artist profiles and job listings tables added
 - GIST constraint implementation design
 - Event sourcing architecture design
 - Hold/pencil booking system design
 - Project management schema
 - Multi-layer caching architecture
+- Security isolation policy with zero-trust model
+- Comprehensive backup and recovery strategy
+- Data version history system design
+- Module architecture for all features
 - Figma integration documentation
 - Complete architecture documentation
+- System design improvements documented
+- All technical decisions recorded (TDR-001 through TDR-011)
 
-### 🚧 Pending Development
-- WebSocket server setup
-- UI component implementation
-- API endpoint development
-- Real-time synchronization
-- Authentication middleware
-- Testing infrastructure
-- Deployment configuration
+### 🚧 Phase 2: Foundation Setup (READY TO START)
+- [ ] Monorepo initialization with Turborepo
+- [ ] Frontend app setup (Next.js 15)
+- [ ] Backend app setup (NestJS)
+- [ ] Shared packages creation
+- [ ] Development environment configuration
+- [ ] Database schema implementation
+- [ ] Docker Compose setup
+
+### 📅 Phase 3: Core Infrastructure (Week 2)
+- [ ] Authentication setup (Clerk)
+- [ ] Tenant isolation implementation
+- [ ] Base API structure
+- [ ] WebSocket server setup (Socket.IO)
+- [ ] CI/CD pipeline configuration
+- [ ] OpenAPI documentation setup
+
+### 📅 Phase 4: Core Features (Weeks 3-4)
+- [ ] Booking system API
+- [ ] Booking UI components
+- [ ] Artist management
+- [ ] Project management
+- [ ] Real-time updates
+
+### 📅 Phase 5: Enhanced Features (Weeks 5-6)
+- [ ] Artist profiles
+- [ ] Job listings
+- [ ] Availability system
+- [ ] Notification system
+- [ ] Search and filtering
+
+### 📅 Phase 6: Quality & Performance (Week 7)
+- [ ] Performance optimization
+- [ ] Security hardening
+- [ ] Testing suite
+- [ ] Documentation updates
+- [ ] Monitoring setup
+
+### 📅 Phase 7: Deployment (Week 8)
+- [ ] Production environment setup
+- [ ] Deployment automation
+- [ ] Performance testing
+- [ ] Security audit
+- [ ] Launch preparation
 
 ## Observability & Monitoring
 
@@ -454,18 +630,26 @@ logger.info({
 
 ### CI/CD Pipeline
 ```yaml
-# GitHub Actions workflow
+# GitHub Actions workflow (Monorepo-aware)
 Trigger: Push to main/develop
   ↓
-Tests: Unit + Integration + E2E
+Changed Detection: Turborepo identifies affected packages
   ↓
-Security: Audit + Vulnerability scan
+Parallel Testing: 
+  - Frontend: Unit + Component + E2E tests
+  - Backend: Unit + Integration + E2E tests
   ↓
-Build: Next.js production build
+Security: Audit + Vulnerability scan (all packages)
   ↓
-Deploy: Vercel (frontend) + Railway (services)
+Parallel Builds:
+  - Frontend: Next.js production build
+  - Backend: NestJS production build
   ↓
-Verify: Health checks + Smoke tests
+Parallel Deployments:
+  - Frontend → Vercel
+  - Backend → Railway/DigitalOcean
+  ↓
+Verify: Health checks + Smoke tests + API contract tests
 ```
 
 ### Environment Strategy
@@ -475,9 +659,9 @@ Verify: Health checks + Smoke tests
 
 ## Cost Analysis
 
-### MVP Phase (€50-100/month)
-- Railway: €5 (Hobby) + €20 (usage)
-- Vercel: €20 (Pro)
+### MVP Phase (€70-120/month)
+- Railway/DigitalOcean: €20-40 (Backend hosting)
+- Vercel: €20 (Pro for frontend)
 - Neon: €0 (Free tier)
 - Cloudflare: €0 (Free tier)
 - Clerk: €0 (Free tier - 10K MAU)
@@ -489,55 +673,79 @@ Verify: Health checks + Smoke tests
 - Sentry: €26 (Team plan)
 - Email: €20 (SendGrid)
 
-## Required Approvals Before Development
+## Architecture Decisions & Approvals
 
-### ✅ Database Schema
+### ✅ Database Schema (APPROVED)
 - [x] Artists table for people-only bookings
 - [x] GIST constraints for conflict prevention
 - [x] Event sourcing for audit trail
 - [x] Project phases for Gantt charts
 - [x] Hold/pencil booking statuses
+- [x] Data version history for all changes
+- [x] Backup snapshots table
 
-### ⏳ Technical Stack Confirmation
-- [ ] PostgreSQL with Neon hosting
-- [ ] Socket.IO for real-time
-- [ ] Clerk for authentication
-- [ ] Redis for caching/queuing
+### ✅ Technical Stack (APPROVED)
+- [x] PostgreSQL 15 with Neon hosting
+- [x] Socket.IO for real-time updates
+- [x] Clerk for authentication
+- [x] Redis for caching/queuing
+- [x] Next.js 15 with App Router
+- [x] NestJS for backend API
+- [x] Drizzle ORM for database
+- [x] Turborepo for monorepo
 
-### ⏳ Architecture Patterns
-- [ ] Modular monolith approach
-- [ ] Event-driven design
-- [ ] Multi-tenant with RLS
-- [ ] Optimistic UI updates
+### ✅ Architecture Patterns (APPROVED)
+- [x] Separated frontend/backend (TDR-011)
+- [x] Event-driven design
+- [x] Multi-tenant with RLS
+- [x] Optimistic UI updates
+- [x] CQRS for read/write separation
+- [x] Event sourcing for audit trail
 
-### ⏳ Infrastructure Services
-- [ ] Vercel for frontend hosting
-- [ ] Railway for Redis
-- [ ] Neon for PostgreSQL
-- [ ] Cloudflare for CDN/storage
+### ✅ Infrastructure Services (APPROVED)
+- [x] Vercel for frontend hosting
+- [x] Railway/DigitalOcean for backend
+- [x] Railway for Redis
+- [x] Neon for PostgreSQL
+- [x] Cloudflare for CDN/storage
+- [x] Sentry for error tracking
+- [x] GitHub Actions for CI/CD
 
-## Questions Requiring Answers
+## Implementation Guidelines
 
-1. **Booking Workflow**: Is the hold/pencil/confirmed status workflow correct?
-2. **Artist Types**: Should we support additional artist types beyond the current list?
-3. **Project Features**: Are Gantt charts and phase dependencies sufficient?
-4. **Real-time Scope**: Any additional real-time features needed?
-5. **Performance Targets**: Specific response time requirements?
+### Development Workflow
+1. **Start Here**: See `docs/guides/implementation-guide.md` for step-by-step instructions
+2. **Project Structure**: Follow `docs/guides/project-structure.md` for file organization
+3. **API Design**: Reference `docs/api/api-design.md` for endpoint specifications
+4. **Development Setup**: Use `docs/setup.md` for environment configuration
 
-## Next Steps (After Approval)
+### Key Implementation Principles
+- **Type Safety First**: Use TypeScript strict mode and shared types
+- **API-First Design**: Build backend endpoints before frontend
+- **Test-Driven**: Write tests alongside implementation
+- **Security by Default**: Apply tenant isolation at all layers
+- **Performance Conscious**: Implement caching from the start
+- **Documentation**: Update docs as you build
 
-1. **Infrastructure Setup**: Configure all hosting services
-2. **Development Environment**: Set up local development
-3. **Base Implementation**: Authentication and routing
-4. **Core Features**: Booking system first
-5. **UI Development**: Figma-to-code workflow
-6. **Testing**: Unit tests alongside development
-7. **Deployment**: CI/CD pipeline setup
+### Quick Start Commands
+```bash
+# Initialize monorepo
+pnpm init -y && pnpm add -D turbo
+
+# Create structure
+mkdir -p apps/{web,api} packages/{shared-types,ui,utils,config}
+
+# Install base dependencies
+pnpm add -D typescript @types/node eslint prettier
+
+# Initialize apps (run from root)
+npx create-next-app@latest apps/web --typescript --tailwind --app
+npx @nestjs/cli new apps/api --directory apps/api --package-manager pnpm
+```
 
 ---
 
-**⚠️ REMINDER: This is a pre-development architecture document. No code has been written yet. Development will only begin after all decisions are approved.**
-
-**Last Updated**: January 2025
-**Status**: Awaiting Approval
-**Team**: 2-person development team with AI assistance
+**✅ Status**: Architecture Approved - Ready for Implementation
+**📅 Last Updated**: January 2025
+**👥 Team**: 2-person development team with AI assistance
+**📚 Next**: See `docs/guides/implementation-guide.md` for detailed steps

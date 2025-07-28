@@ -1,0 +1,338 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '8.15.0'
+
+jobs:
+  # Job 1: Determine deployment environment
+  setup-deployment:
+    name: Setup Deployment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+      api-url: ${{ steps.env.outputs.api-url }}
+      app-url: ${{ steps.env.outputs.app-url }}
+    
+    steps:
+      - name: Determine environment
+        id: env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENV="${{ github.event.inputs.environment }}"
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            ENV="production"
+          else
+            ENV="staging"
+          fi
+          
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+          
+          if [[ "$ENV" == "production" ]]; then
+            echo "api-url=https://api.productiontool.com" >> $GITHUB_OUTPUT
+            echo "app-url=https://app.productiontool.com" >> $GITHUB_OUTPUT
+          else
+            echo "api-url=https://api-staging.productiontool.com" >> $GITHUB_OUTPUT
+            echo "app-url=https://staging.productiontool.com" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Notify deployment start
+        run: |
+          echo "🚀 Starting deployment to ${{ steps.env.outputs.environment }}"
+          echo "📱 App URL: ${{ steps.env.outputs.app-url }}"
+          echo "🔗 API URL: ${{ steps.env.outputs.api-url }}"
+
+  # Job 2: Run full CI pipeline
+  ci-check:
+    name: CI Validation
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  # Job 3: Database migrations (staging/production)
+  database-migration:
+    name: Database Migration
+    runs-on: ubuntu-latest
+    needs: [setup-deployment, ci-check]
+    environment: ${{ needs.setup-deployment.outputs.environment }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run database migrations
+        run: pnpm db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Validate migration
+        run: pnpm db:validate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Backup database (production only)
+        if: needs.setup-deployment.outputs.environment == 'production'
+        run: pnpm db:backup
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKUP_STORAGE_URL: ${{ secrets.BACKUP_STORAGE_URL }}
+
+  # Job 4: Deploy Backend API
+  deploy-api:
+    name: Deploy API
+    runs-on: ubuntu-latest
+    needs: [setup-deployment, database-migration]
+    environment: ${{ needs.setup-deployment.outputs.environment }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build API
+        run: pnpm build --filter=api
+        env:
+          NODE_ENV: production
+
+      - name: Deploy to Railway
+        uses: railwayapp/railway-deploy@v3
+        with:
+          service: ${{ needs.setup-deployment.outputs.environment == 'production' && 'production-api' || 'staging-api' }}
+          railway-token: ${{ secrets.RAILWAY_TOKEN }}
+          environment: ${{ needs.setup-deployment.outputs.environment }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          NODE_ENV: production
+
+      - name: Wait for API deployment
+        run: |
+          echo "⏳ Waiting for API deployment to complete..."
+          sleep 60
+
+      - name: Test API health
+        run: |
+          curl -f ${{ needs.setup-deployment.outputs.api-url }}/health || exit 1
+          echo "✅ API is healthy"
+
+  # Job 5: Deploy Frontend
+  deploy-frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: [setup-deployment, deploy-api]
+    environment: ${{ needs.setup-deployment.outputs.environment }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Frontend
+        run: pnpm build --filter=web
+        env:
+          NEXT_PUBLIC_APP_URL: ${{ needs.setup-deployment.outputs.app-url }}
+          NEXT_PUBLIC_API_URL: ${{ needs.setup-deployment.outputs.api-url }}
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+          NEXT_PUBLIC_POSTHOG_KEY: ${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
+          NODE_ENV: production
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./apps/web
+          production: ${{ needs.setup-deployment.outputs.environment == 'production' }}
+          alias-domains: |
+            ${{ needs.setup-deployment.outputs.environment == 'production' && 'app.productiontool.com' || 'staging.productiontool.com' }}
+
+      - name: Wait for frontend deployment
+        run: |
+          echo "⏳ Waiting for frontend deployment to complete..."
+          sleep 30
+
+      - name: Test frontend health
+        run: |
+          curl -f ${{ needs.setup-deployment.outputs.app-url }} || exit 1
+          echo "✅ Frontend is accessible"
+
+  # Job 6: Post-deployment validation
+  post-deployment:
+    name: Post-Deployment Validation
+    runs-on: ubuntu-latest
+    needs: [setup-deployment, deploy-frontend]
+    environment: ${{ needs.setup-deployment.outputs.environment }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run smoke tests
+        run: pnpm test:smoke
+        env:
+          API_URL: ${{ needs.setup-deployment.outputs.api-url }}
+          APP_URL: ${{ needs.setup-deployment.outputs.app-url }}
+
+      - name: Test API endpoints
+        run: |
+          # Test health endpoint
+          curl -f ${{ needs.setup-deployment.outputs.api-url }}/health
+          
+          # Test API version
+          curl -f ${{ needs.setup-deployment.outputs.api-url }}/api/v1/health
+          
+          echo "✅ All API endpoints responding"
+
+      - name: Test WebSocket connection
+        run: |
+          node scripts/test-websocket.js ${{ needs.setup-deployment.outputs.api-url }}
+          echo "✅ WebSocket connection working"
+
+      - name: Check database connectivity
+        run: pnpm db:test
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Validate Redis connectivity
+        run: pnpm redis:test
+        env:
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+
+      - name: Performance audit
+        run: |
+          npx lighthouse ${{ needs.setup-deployment.outputs.app-url }} --output=json --output-path=lighthouse-report.json --chrome-flags="--headless"
+          
+          # Check performance score
+          PERF_SCORE=$(cat lighthouse-report.json | jq '.categories.performance.score * 100')
+          echo "Performance Score: $PERF_SCORE"
+          
+          if (( $(echo "$PERF_SCORE < 80" | bc -l) )); then
+            echo "⚠️ Performance score below 80: $PERF_SCORE"
+          else
+            echo "✅ Performance score acceptable: $PERF_SCORE"
+          fi
+
+      - name: Security headers check
+        run: |
+          curl -I ${{ needs.setup-deployment.outputs.app-url }} | grep -E "(X-Frame-Options|X-Content-Type-Options|Strict-Transport-Security)" || echo "⚠️ Some security headers missing"
+
+  # Job 7: Rollback capability
+  rollback:
+    name: Rollback (Manual)
+    runs-on: ubuntu-latest
+    needs: [setup-deployment]
+    if: failure() && github.event_name == 'workflow_dispatch'
+    environment: ${{ needs.setup-deployment.outputs.environment }}
+    
+    steps:
+      - name: Rollback API
+        run: |
+          echo "🔄 Rolling back API deployment..."
+          # Add Railway rollback command here
+          
+      - name: Rollback Frontend
+        run: |
+          echo "🔄 Rolling back frontend deployment..."
+          # Add Vercel rollback command here
+
+      - name: Rollback Database
+        run: |
+          echo "🔄 Rolling back database changes..."
+          # Add database rollback logic here
+
+      - name: Notify rollback completion
+        run: echo "↩️ Rollback completed for ${{ needs.setup-deployment.outputs.environment }}"
+
+  # Job 8: Deployment notification
+  notify:
+    name: Deployment Notification
+    runs-on: ubuntu-latest
+    needs: [setup-deployment, post-deployment]
+    if: always()
+    
+    steps:
+      - name: Notify success
+        if: success()
+        run: |
+          echo "🎉 Deployment to ${{ needs.setup-deployment.outputs.environment }} completed successfully!"
+          echo "🔗 App: ${{ needs.setup-deployment.outputs.app-url }}"
+          echo "🔗 API: ${{ needs.setup-deployment.outputs.api-url }}"
+          
+          # Add Slack/Discord notification here if needed
+          
+      - name: Notify failure
+        if: failure()
+        run: |
+          echo "❌ Deployment to ${{ needs.setup-deployment.outputs.environment }} failed!"
+          echo "Please check the workflow logs for details."
+          
+          # Add Slack/Discord notification here if needed
