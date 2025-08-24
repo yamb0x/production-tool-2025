@@ -38,7 +38,10 @@
     "build:api": "turbo run build --filter=api",
     "build:web": "turbo run build --filter=web",
     "dev:api": "turbo run dev --filter=api",
-    "dev:web": "turbo run dev --filter=web"
+    "dev:web": "turbo run dev --filter=web",
+    "dev:monitor": "node scripts/dev-monitor.js",
+    "dev:clean": "turbo run clean && rm -rf node_modules/.cache",
+    "dev:setup": "pnpm install && cp .env.example .env.local"
   },
   "keywords": [
     "booking",
