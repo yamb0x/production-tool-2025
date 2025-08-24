@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "name": "Production Tool 2.0",
+  "description": "Artist booking and project management platform",
+  "allowRules": [
+    "read:**/*",
+    "write:**/*",
+    "edit:**/*",
+    "bash:**",
+    "glob:**/*"
+  ],
+  "denyRules": [
+    "write:/Users/**/.ssh/**",
+    "write:/Users/**/.env*",
+    "bash:rm -rf /**"
+  ],
+  "environment": {
+    "NODE_ENV": "development",
+    "PROJECT_TYPE": "monorepo",
+    "FRAMEWORK": "next.js"
+  },
+  "hooks": {},
+  "tools": {
+    "enabled": ["read", "write", "edit", "bash", "glob", "grep", "task", "todowrite"]
+  },
+  "agents": {
+    "enabled": true,
+    "directory": ".claude/agents"
+  },
+  "preferences": {
+    "codeStyle": "typescript-strict",
+    "testFramework": "jest",
+    "linting": "eslint",
+    "formatting": "prettier"
+  }
+}
