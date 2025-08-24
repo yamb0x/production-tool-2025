@@ -5,7 +5,7 @@
 **Production Tool 2.0** is an artist booking and project management platform for creative studios. It provides conflict-free scheduling, real-time collaboration, and comprehensive project tracking with enterprise-grade security and scalability.
 
 ### Key Features
-- **Artist Booking System**: PostgreSQL GIST constraints prevent double-bookings
+- **Artist Booking System**: MongoDB with application-level conflict detection
 - **Real-time Collaboration**: Socket.IO with Redis for instant updates
 - **Project Management**: Multi-phase projects with budget tracking
 - **Multi-tenant Architecture**: Complete data isolation between studios
@@ -18,8 +18,8 @@
 |-----------|------------|---------|---------------|
 | **Frontend** | Next.js | 15.x | SSR/SSG, App Router, React 19 |
 | **Backend** | NestJS | 10.x | Enterprise patterns, TypeScript-first |
-| **Database** | PostgreSQL | 15.x | GIST constraints, ACID compliance |
-| **ORM** | Drizzle | Latest | Type-safe, performance-focused |
+| **Database** | MongoDB | 7.x | Document flexibility, horizontal scaling |
+| **ODM** | Mongoose | 8.x | Schema validation, middleware support |
 | **Real-time** | Socket.IO | 4.x | Mature WebSocket abstraction |
 | **Auth** | Clerk | Latest | Enterprise auth, multi-tenant ready |
 | **State** | Zustand | 4.x | Minimal boilerplate, TypeScript-first |
@@ -31,7 +31,7 @@
 |---------|----------|---------|
 | **Frontend** | Vercel | Optimal Next.js deployment |
 | **Backend** | Railway/DigitalOcean | Container deployment |
-| **Database** | Neon | Serverless PostgreSQL |
+| **Database** | MongoDB Atlas | Managed MongoDB cluster |
 | **Cache** | Redis Cloud | Managed Redis |
 | **Monitoring** | Vercel Analytics + Custom | Performance tracking |
 
@@ -47,8 +47,8 @@
                                             │
                                             ▼
                                     ┌─────────────────┐
-                                    │   PostgreSQL    │
-                                    │   (Neon)        │
+                                    │    MongoDB      │
+                                    │  (Atlas/Local)  │
                                     └─────────────────┘
 ```
 
@@ -78,18 +78,24 @@ packages/
 ```
 
 ### 3. Multi-Tenant Architecture
-```sql
--- Row-Level Security for tenant isolation
-CREATE POLICY tenant_isolation ON bookings
-FOR ALL TO authenticated
-USING (tenant_id = current_setting('app.current_tenant')::uuid);
+```typescript
+// Application-level tenant isolation
+interface TenantAware {
+  tenantId: string;
+}
+
+// All queries automatically filtered by tenant
+const bookings = await BookingModel.find({ 
+  tenantId: currentTenant.id,
+  ...queryFilters 
+});
 ```
 
 **Tenant Context Flow:**
 1. JWT contains tenant ID
 2. Middleware extracts tenant context
-3. RLS policies enforce data isolation
-4. All queries scoped to tenant
+3. Mongoose middleware enforces isolation
+4. All queries automatically scoped to tenant
 
 ### 4. Event-Driven Architecture
 ```typescript
@@ -117,60 +123,81 @@ async handleBookingCreated(event: BookingCreatedEvent) {
 ## Database Design
 
 ### Core Schema
-```sql
--- Artists with availability tracking
-CREATE TABLE artists (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL REFERENCES tenants(id),
-  name text NOT NULL,
-  email text UNIQUE NOT NULL,
-  specialties text[],
-  hourly_rate numeric(10,2),
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
+```typescript
+// Artists with availability tracking
+const ArtistSchema = new Schema({
+  tenantId: { type: String, required: true, index: true },
+  name: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  specialties: [String],
+  hourlyRate: Number,
+  availability: {
+    blackoutDates: [Date],
+    preferredDays: [String]
+  },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
 
--- Bookings with GIST conflict prevention
-CREATE TABLE bookings (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL REFERENCES tenants(id),
-  artist_id uuid NOT NULL REFERENCES artists(id),
-  project_id uuid REFERENCES projects(id),
-  start_time timestamptz NOT NULL,
-  end_time timestamptz NOT NULL,
-  status booking_status NOT NULL DEFAULT 'hold',
-  created_by uuid NOT NULL REFERENCES users(id),
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  
-  -- Prevent double bookings using GIST exclusion
-  CONSTRAINT no_double_booking 
-  EXCLUDE USING gist (
-    tenant_id WITH =,
-    artist_id WITH =,
-    tstzrange(start_time, end_time, '[)') WITH &&
-  ) WHERE (status IN ('confirmed', 'pencil'))
-);
+// Bookings with conflict prevention
+const BookingSchema = new Schema({
+  tenantId: { type: String, required: true, index: true },
+  artistId: { type: String, required: true, ref: 'Artist' },
+  projectId: { type: String, ref: 'Project' },
+  startTime: { type: Date, required: true },
+  endTime: { type: Date, required: true },
+  status: { 
+    type: String, 
+    enum: ['hold', 'confirmed', 'pencil', 'cancelled'],
+    default: 'hold'
+  },
+  createdBy: { type: String, required: true, ref: 'User' },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
 
--- Projects with budget tracking
-CREATE TABLE projects (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL REFERENCES tenants(id),
-  name text NOT NULL,
-  client text,
-  budget numeric(12,2),
-  status project_status DEFAULT 'planning',
-  start_date date,
-  end_date date,
-  created_at timestamptz DEFAULT now()
-);
+// Application-level booking conflict prevention
+BookingSchema.pre('save', async function() {
+  const conflicts = await this.constructor.find({
+    tenantId: this.tenantId,
+    artistId: this.artistId,
+    status: { $in: ['confirmed', 'pencil'] },
+    _id: { $ne: this._id },
+    $or: [
+      { startTime: { $lt: this.endTime, $gte: this.startTime } },
+      { endTime: { $gt: this.startTime, $lte: this.endTime } }
+    ]
+  });
+  if (conflicts.length > 0) {
+    throw new Error('Booking conflict detected');
+  }
+});
 
--- Event sourcing for audit trail
-CREATE TABLE events (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL,
-  aggregate_id uuid NOT NULL,
-  aggregate_type text NOT NULL,
+// Projects with budget tracking
+const ProjectSchema = new Schema({
+  tenantId: { type: String, required: true, index: true },
+  name: { type: String, required: true },
+  client: String,
+  budget: {
+    total: Number,
+    spent: { type: Number, default: 0 },
+    currency: { type: String, default: 'USD' }
+  },
+  status: {
+    type: String,
+    enum: ['planning', 'active', 'completed', 'on-hold'],
+    default: 'planning'
+  },
+  startDate: Date,
+  endDate: Date,
+  createdAt: { type: Date, default: Date.now }
+});
+
+// Event sourcing for audit trail
+const EventSchema = new Schema({
+  tenantId: { type: String, required: true, index: true },
+  aggregateId: { type: String, required: true },
+  aggregateType: { type: String, required: true },
   event_type text NOT NULL,
   event_data jsonb NOT NULL,
   version integer NOT NULL,

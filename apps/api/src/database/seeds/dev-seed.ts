@@ -1,59 +1,71 @@
-import { db } from '../connection';
-import { 
-  tenants, 
-  users, 
-  artists, 
-  artistProfiles,
-  projects, 
-  bookings, 
-  jobListings,
-  jobApplications,
-  availabilityPatterns,
-  projectPhases
-} from '../../../../src/lib/db/schema';
+#!/usr/bin/env tsx
 
-export async function seedDevelopmentData() {
-  console.log('🌱 Starting development data seeding...');
+import mongoose from 'mongoose';
+import { config } from 'dotenv';
+import { resolve } from 'path';
+import { faker } from '@faker-js/faker';
 
+// Import schemas
+import { Tenant, TenantSchema } from '../schemas/tenant.schema';
+import { User, UserSchema } from '../schemas/user.schema';
+import { Artist, ArtistSchema } from '../schemas/artist.schema';
+import { Project, ProjectSchema } from '../schemas/project.schema';
+import { Booking, BookingSchema } from '../schemas/booking.schema';
+
+// Load environment variables
+config({ path: resolve(process.cwd(), '.env') });
+config({ path: resolve(process.cwd(), '.env.local') });
+
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/production_tool_dev';
+
+// Create models
+const TenantModel = mongoose.model('Tenant', TenantSchema);
+const UserModel = mongoose.model('User', UserSchema);
+const ArtistModel = mongoose.model('Artist', ArtistSchema);
+const ProjectModel = mongoose.model('Project', ProjectSchema);
+const BookingModel = mongoose.model('Booking', BookingSchema);
+
+async function seed() {
+  console.log('🌱 Starting database seed...');
+  
   try {
-    // 1. Create test tenants
-    console.log('Creating tenants...');
-    const [studio, freelancer, enterprise] = await db.insert(tenants).values([
-      {
-        name: 'Pixel Studios',
-        type: 'studio',
-        settings: {
-          timezone: 'America/Los_Angeles',
-          workingHours: { start: '09:00', end: '18:00' },
-          bookingRules: {
-            maxAdvanceBooking: 90,
-            minBookingDuration: 4,
-            allowWeekendBookings: false
-          }
-        }
-      },
-      {
-        name: 'Maya Freelance',
-        type: 'freelancer',
-        settings: {
-          timezone: 'America/New_York',
-          workingHours: { start: '10:00', end: '19:00' }
-        }
-      },
-      {
-        name: 'VFX Enterprises Corp',
-        type: 'enterprise',
-        settings: {
-          timezone: 'Europe/London',
-          workingHours: { start: '08:00', end: '17:00' },
-          bookingRules: {
-            maxAdvanceBooking: 180,
-            requireApproval: true,
-            allowMultipleProjects: true
-          }
+    // Connect to MongoDB
+    await mongoose.connect(MONGODB_URI);
+    console.log('✅ Connected to MongoDB');
+    
+    // Clear existing data
+    console.log('🧹 Clearing existing data...');
+    await Promise.all([
+      TenantModel.deleteMany({}),
+      UserModel.deleteMany({}),
+      ArtistModel.deleteMany({}),
+      ProjectModel.deleteMany({}),
+      BookingModel.deleteMany({})
+    ]);
+    
+    // Create demo tenant
+    console.log('🏢 Creating demo tenant...');
+    const tenant = await TenantModel.create({
+      tenantId: 'demo-tenant',
+      name: 'Demo Studio',
+      plan: 'pro',
+      status: 'active',
+      settings: {
+        timezone: 'America/Los_Angeles',
+        currency: 'USD',
+        workingHours: {
+          start: '09:00',
+          end: '18:00'
+        },
+        bookingRules: {
+          maxAdvanceBooking: 90,
+          minBookingDuration: 4,
+          allowWeekendBookings: false,
+          requireApproval: true,
+          allowMultipleProjects: true
         }
       }
-    ]).returning();
+    });
 
     // 2. Create test users
     console.log('Creating users...');

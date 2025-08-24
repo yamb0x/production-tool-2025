@@ -24,8 +24,8 @@ This document outlines all tools, technologies, and services used in Production 
 | Technology | Version | Purpose | Justification |
 |------------|---------|---------|---------------|
 | **NestJS** | 10.x | Node.js framework | Enterprise patterns, TypeScript-first, scalable |
-| **PostgreSQL** | 15.x | Database | GIST constraints, ACID compliance, advanced features |
-| **Drizzle ORM** | Latest | Database ORM | Type-safe, performance-focused, great DX |
+| **MongoDB** | 7.x | Database | Document flexibility, horizontal scaling, JSON native |
+| **Mongoose** | 8.x | Database ODM | Schema validation, middleware support, TypeScript integration |
 | **Socket.IO** | 4.x | Real-time communication | Mature WebSocket abstraction, auto-reconnection |
 | **Redis** | 7.x | Caching & sessions | High performance, pub/sub for scaling |
 | **Clerk** | Latest | Authentication | Enterprise auth, multi-tenant ready |
@@ -84,7 +84,7 @@ core_framework:
     - booking-specialist: GIST constraints and booking workflows
     - realtime-coordinator: Socket.IO and real-time features
     - api-architect: RESTful API design and documentation
-    - database-engineer: PostgreSQL optimization and migrations
+    - database-engineer: MongoDB optimization and schema design
     - security-architect: Multi-tenant security and RLS policies
     - test-engineer: Comprehensive testing strategies
     - ui-specialist: React components and design systems
@@ -111,16 +111,16 @@ core_framework:
 ### Database Technologies
 | Technology | Purpose | Features |
 |------------|---------|----------|
-| **PostgreSQL 15** | Primary database | GIST constraints, RLS, JSONB, advanced indexing |
-| **Neon** | Hosted PostgreSQL | Serverless, branching, point-in-time recovery |
-| **Drizzle ORM** | Database ORM | Type-safe queries, migration management |
+| **MongoDB 7** | Primary database | Document model, sharding, aggregation framework |
+| **MongoDB Atlas** | Hosted MongoDB | Managed service, auto-scaling, global clusters |
+| **Mongoose** | Database ODM | Schema validation, middleware, population |
 | **Redis** | Caching layer | Session storage, pub/sub, rate limiting |
 | **PgBouncer** | Connection pooling | Database connection optimization |
 
 ### Database Tools
 | Tool | Purpose | Usage |
 |------|---------|-------|
-| **Drizzle Studio** | Database GUI | Schema visualization, data browsing |
+| **MongoDB Compass** | Database GUI | Query builder, schema analysis, performance insights |
 | **pgAdmin** | Database administration | Advanced database management |
 | **pg_dump** | Backup utility | Database backups and migrations |
 | **pgbench** | Performance testing | Database load testing |
@@ -144,7 +144,7 @@ core_framework:
 | **Vercel** | Frontend hosting | Next.js optimization, edge functions, global CDN |
 | **Railway** | Backend hosting | Container deployment, auto-scaling |
 | **DigitalOcean** | Alternative backend | Droplets, managed databases, load balancers |
-| **Neon** | Database hosting | Serverless PostgreSQL, branching |
+| **MongoDB Atlas** | Database hosting | Managed MongoDB, auto-scaling, backups |
 | **Redis Cloud** | Cache hosting | Managed Redis, global distribution |
 
 ### DevOps Tools
@@ -160,7 +160,7 @@ core_framework:
 ```yaml
 environments:
   development:
-    database: Local PostgreSQL + Docker
+    database: Local MongoDB + Docker
     cache: Local Redis + Docker
     frontend: localhost:3000
     backend: localhost:8000
@@ -300,7 +300,7 @@ data_flow:
   processing:
     - ETL pipelines for business metrics
     - Real-time aggregation with Redis
-    - Historical analysis with PostgreSQL
+    - Historical analysis with MongoDB aggregation
     
   visualization:
     - Real-time dashboards in Grafana
@@ -493,7 +493,7 @@ interface ExternalServices {
 ```bash
 # Development
 NODE_ENV=development
-DATABASE_URL=postgresql://...
+MONGODB_URI=mongodb://...
 REDIS_URL=redis://localhost:6379
 NEXT_PUBLIC_API_URL=http://localhost:8000
 

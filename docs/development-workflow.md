@@ -9,8 +9,7 @@ This guide outlines the optimal workflow for developing Production Tool 2.0 usin
 ### Core Principles
 - **AI-First Development**: Leverage Claude Code and specialized agents for maximum productivity
 - **Evidence-Based Decisions**: All architectural choices backed by testing and metrics
-- **Incremental Iteration**: Small, testable changes with immediate feedback
-- **Documentation as Code**: Keep documentation synchronized with implementation
+- **Documentation as context**: Keep documentation synchronized with implementation
 - **Quality Gates**: Automated quality checks at every stage
 
 ## Tools and Stack
@@ -20,7 +19,7 @@ This guide outlines the optimal workflow for developing Production Tool 2.0 usin
 | Category | Tool | Purpose | Integration |
 |----------|------|---------|-------------|
 | **AI Assistant** | Claude Code | Primary development AI | SuperClaude framework |
-| **IDE** | VS Code | Primary development environment | Extensions, settings |
+| **IDE** | Cursor | Primary development environment | Extensions, settings |
 | **Version Control** | Git + GitHub | Code versioning | Actions, PR automation |
 | **Package Manager** | pnpm | Monorepo dependency management | Workspaces, caching |
 | **Build System** | Turborepo | Monorepo build orchestration | Caching, parallelization |

@@ -7,7 +7,8 @@ Get Production Tool 2.0 running locally in under 10 minutes.
 ### Prerequisites
 - **Node.js 20+**: Latest LTS version
 - **pnpm 8+**: Package manager for monorepo
-- **Docker**: For local database
+- **MongoDB**: Local or MongoDB Atlas
+- **Docker** (optional): For MongoDB container
 - **Git**: Version control
 
 ### One-Command Setup
@@ -20,10 +21,9 @@ pnpm setup:dev
 
 This runs:
 1. `pnpm install` - Install all dependencies
-2. `docker-compose up -d` - Start local PostgreSQL + Redis
-3. `pnpm db:migrate` - Setup database schema
-4. `pnpm db:seed` - Add sample data
-5. `pnpm dev` - Start all development servers
+2. `docker-compose up -d` - Start local MongoDB + Redis
+3. `pnpm db:seed` - Add sample data
+4. `pnpm dev` - Start all development servers
 
 ### Manual Setup (if needed)
 
@@ -49,12 +49,11 @@ nano .env
 
 #### 3. Database Setup
 ```bash
-# Start PostgreSQL and Redis
+# Option 1: Start MongoDB with Docker
 docker-compose up -d
 
-# Generate and run migrations
-pnpm db:generate
-pnpm db:migrate
+# Option 2: Use local MongoDB installation
+# Make sure MongoDB is running on port 27017
 
 # Seed with sample data
 pnpm db:seed
@@ -77,10 +76,11 @@ pnpm dev:api    # Backend at http://localhost:8000
 #### Root `.env`
 ```bash
 # Database
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/production_tool_dev"
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_DB=production_tool_dev
+MONGODB_URI="mongodb://localhost:27017/production_tool_dev"
+MONGODB_DB_NAME=production_tool_dev
+
+# For MongoDB Atlas:
+# MONGODB_URI="mongodb+srv://username:password@cluster.mongodb.net/production_tool?retryWrites=true&w=majority"
 
 # Redis
 REDIS_URL="redis://localhost:6379"
@@ -111,7 +111,8 @@ NEXT_PUBLIC_DEV_MODE=true
 #### Backend (`apps/api/.env`)
 ```bash
 # Database
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/production_tool_dev
+MONGODB_URI=mongodb://localhost:27017/production_tool_dev
+MONGODB_DB_NAME=production_tool_dev
 
 # Redis
 REDIS_URL=redis://localhost:6379
@@ -137,17 +138,17 @@ NODE_ENV=development
 
 ## Database Setup Details
 
-### Local PostgreSQL with Docker
+### Local MongoDB with Docker
 ```yaml
 # docker-compose.yml
 version: '3.8'
 services:
-  postgres:
-    image: postgres:15
+  mongodb:
+    image: mongo:7
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: production_tool_dev
+      MONGO_INITDB_DATABASE: production_tool_dev
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
     ports:
       - "5432:5432"
     volumes:
@@ -383,11 +384,11 @@ pnpm db:migrate:test
 
 #### 1. Database Connection Issues
 ```bash
-# Check if PostgreSQL is running
-docker ps | grep postgres
+# Check if MongoDB is running
+docker ps | grep mongo
 
 # Check database connectivity
-psql postgresql://postgres:postgres@localhost:5432/production_tool_dev
+mongosh mongodb://localhost:27017/production_tool_dev
 
 # Reset Docker containers
 docker-compose down

@@ -36,7 +36,7 @@ A professional artist booking and project management platform designed for creat
 ## Core Features
 
 ### Artist Booking System
-- **Conflict-free scheduling** with PostgreSQL GIST constraints
+- **Conflict-free scheduling** with intelligent booking detection
 - **Hold/Pencil system** for tentative bookings
 - **Real-time availability** updates across all users
 - **Multi-tenant isolation** with row-level security
@@ -81,7 +81,7 @@ A professional artist booking and project management platform designed for creat
 - **Runtime**: Node.js 20 LTS
 - **Framework**: NestJS 10.x
 - **Language**: TypeScript 5.x (strict mode)
-- **Database**: PostgreSQL 15 with Drizzle ORM
+- **Database**: MongoDB 7 with Mongoose ODM
 - **Caching**: Redis (multi-layer architecture)
 - **Real-time**: Socket.IO with Redis adapter
 - **Authentication**: Clerk with JWT
@@ -98,7 +98,7 @@ A professional artist booking and project management platform designed for creat
 - **Monorepo**: Turborepo with pnpm
 - **Frontend Hosting**: Vercel Edge Network
 - **Backend Hosting**: Railway/DigitalOcean
-- **Database**: Neon (Managed PostgreSQL)
+- **Database**: MongoDB Atlas (Managed MongoDB)
 - **Cache/Queue**: Railway Redis
 - **File Storage**: Cloudflare R2
 - **Monitoring**: Sentry + OpenTelemetry
@@ -126,12 +126,12 @@ The system follows a **separated frontend/backend architecture** with a monorepo
 │                    NestJS Backend API                       │
 │                  Railway/DigitalOcean                       │
 │         REST API + Socket.IO + Background Jobs              │
-│         Clerk Auth + Drizzle ORM + Business Logic          │
+│         Clerk Auth + Mongoose ODM + Business Logic         │
 └─────────────┬──────────────────────┬────────────────────────┘
               │                      │
               ▼                      ▼
 ┌──────────────────────┐    ┌────────────────────────────┐
-│   PostgreSQL (Neon)  │    │      Redis (Railway)       │
+│   MongoDB (Atlas)    │    │      Redis (Railway)       │
 │   Primary Database   │    │   Cache + Message Queue    │
 │   Multi-tenant RLS   │    │    Real-time Events        │
 └──────────────────────┘    └────────────────────────────┘
@@ -186,7 +186,7 @@ The project supports design-to-code workflow using:
 ### Prerequisites
 - Node.js 20+ LTS
 - pnpm 8+ (required for monorepo)
-- Docker Desktop (for PostgreSQL and Redis)
+- Docker Desktop (for MongoDB and Redis) or local MongoDB installation
 - Git
 - Clerk account (free tier works)
 
@@ -203,7 +203,7 @@ npm install -g pnpm@8
 # Install all dependencies
 pnpm install
 
-# Start Docker services (PostgreSQL + Redis)
+# Start Docker services (MongoDB + Redis)
 docker-compose up -d
 
 # Set up environment files
@@ -230,7 +230,7 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
 
 # Backend (apps/api/.env.local)
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/production_tool
+MONGODB_URI=mongodb://localhost:27017/production_tool
 REDIS_URL=redis://localhost:6379
 CLERK_SECRET_KEY=sk_test_...
 ```
@@ -284,7 +284,7 @@ pnpm dev:api           # Backend only
 pnpm db:generate       # Generate migrations
 pnpm db:migrate        # Apply migrations
 pnpm db:seed           # Seed sample data
-pnpm db:studio         # Open Drizzle Studio
+# Use MongoDB Compass for database visualization
 
 # Testing
 pnpm test              # Run all tests

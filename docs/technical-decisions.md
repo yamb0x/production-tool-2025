@@ -37,6 +37,42 @@ Frontend (Vercel)     ←→     Backend (Railway)
    Shared TypeScript types via workspace packages
 ```
 
+### TDR-012: MongoDB Database Migration
+**Date**: 2025-01-27  
+**Status**: ACCEPTED (Supersedes database choice in TDR-011)
+
+**Context**: Originally chose PostgreSQL for ACID compliance and GIST constraints. After team discussion, prioritizing developer experience and flexibility.
+
+**Decision**: Migrate from PostgreSQL to MongoDB as primary database.
+
+**Rationale**:
+- **Developer Experience**: Simpler schema evolution and faster iteration
+- **Flexibility**: Document model better fits varied artist/project data
+- **Horizontal Scaling**: Built-in sharding for future growth
+- **JSON Native**: Natural fit for JavaScript/TypeScript stack
+- **Rapid Prototyping**: Faster feature development without migrations
+
+**Trade-offs**:
+- ✅ **Pros**: Schema flexibility, easier development, better JavaScript integration
+- ❌ **Cons**: No GIST constraints, eventual consistency, application-level conflict detection
+- 🔧 **Mitigation**: Implement booking conflicts in application layer, use transactions for critical operations
+
+**Implementation Changes**:
+```typescript
+// From PostgreSQL with Drizzle ORM
+const booking = await db.insert(bookings).values({...});
+
+// To MongoDB with Mongoose ODM
+const booking = new BookingModel({...});
+await booking.save(); // Pre-save hooks handle conflict detection
+```
+
+**Conflict Prevention Strategy**:
+- Application-level booking conflict detection
+- Mongoose pre-save middleware for validation
+- Compound indexes for multi-tenant queries
+- Transaction support for critical operations
+
 ### TDR-010: Event-Driven Architecture with Event Sourcing
 **Date**: 2025-01-15  
 **Status**: ACCEPTED
@@ -286,12 +322,14 @@ packages/
 - **Scaling**: Automatic scaling based on load
 - **Developer Experience**: Simple deployment process
 
-#### Database Hosting: Neon
+#### Database Hosting: MongoDB Atlas
 **Rationale**:
-- **Serverless PostgreSQL**: Pay-per-use scaling
-- **Branching**: Database branches for development
-- **Point-in-Time Recovery**: Built-in backup capabilities
+- **Managed MongoDB**: Fully managed database service
+- **Auto-scaling**: Automatic scaling based on workload
+- **Global Clusters**: Multi-region deployment options
+- **Built-in Backup**: Automated backups and point-in-time recovery
 - **Connection Pooling**: Automatic connection management
+- **Free Tier**: Generous free tier for development
 
 ### Monitoring and Analytics
 
